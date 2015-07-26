@@ -21,69 +21,25 @@ produce :: [f a] -> RDD f a
 produce = RDD id
 
 compute :: RDD f a -> Int -> Maybe (f a)
-compute (RDD c n) i = go n i
-  where go [] _ = Nothing
-        go (x:xs) 0 = Just $ c x
-        go (x:xs) j = go xs $ j - 1
+compute (RDD c n) i = fmap c $ n `safeLookup` i
+  where safeLookup []     _ = Nothing
+        safeLookup (x:_)  0 = Just x
+        safeLookup (_:xs) n = safeLookup xs (n - 1)
 
 mapPartitions :: (f a -> g b) -> RDD f a -> RDD g b
 mapPartitions f (RDD c n) = RDD (f . c) n
 
+mapPartitionsWithIndex :: (Int -> f a -> g b) -> RDD f a -> RDD g b
+mapPartitionsWithIndex f (RDD c n) = RDD go [0..length n - 1]
+  where go i = f i . c $ n !! i
+
 getNumPartitions :: RDD f a -> Int
 getNumPartitions (RDD _ n) = length n
-
---cataPartitions :: (f a -> b) -> RDD f a -> RDD Identity b
---cataPartitions f (RDD c n) = RDD (Identity . f . c) n
 
 type FileName = String
 type LineData = String
 type HashFunc a = (a -> Integer)
 type KeyedRDD f k v = RDD f (k, v)
---type MapRDD k v = RDD (M.Map k) v
-
--- class MonadShuffle m where
---   --load :: [FileName] -> m (RDD [] LineData)
---   partitionBy :: Integer -> HashFunc a -> RDD f a -> m (RDD f a)
---   collect :: Foldable f => RDD f a -> m [a]
---   foldMapRDD :: (Monoid b, Foldable f) => (a -> b) -> RDD f a -> m b
---   --foldRDD :: Foldable f => (a -> b) -> (b -> b -> b) -> RDD f a -> m (Maybe b)
---   foldrRDD :: Foldable f => (a -> b) -> (b -> b -> b) -> b -> RDD f a -> m b
---
--- instance Functor f => Functor (RDD f) where
---   fmap f (RDD c n) = RDD (fmap f . c) n
---
--- instance Foldable f => Foldable (RDD f) where
---   foldMap f (RDD c n) = mconcat $ map (foldMap f . c) n
---
--- instance Traversable f => Traversable (RDD f) where
---   sequenceA = fmap produce . sequenceA . fmap sequenceA . extract
---
--- instance MonadShuffle Identity where
---   partitionBy i hf r = undefined
---   collect = Identity . join . map toList . extract
---   foldMapRDD f = Identity . mconcat . map runIdentity . extract . mapPartitions (Identity . foldMap f)
--- --  foldRDD f g = Identity . foldr1 g . catMaybes . extract . mapPartitions (foldr go Nothing)
--- --    where go a Nothing  = Just $ f a
--- --          go a (Just b) = Just $ g (f a) b
-
--- data ShuffleF x = Shuffle x
---                 | Collect (RDD f a)
---                   deriving (Show)
---
--- instance Functor ShuffleF where
---   fmap f (Shuffle x) = Shuffle (f x)
---   fmap f (Collect x) = Shuffle (f x)
---
--- type Shuffle = Free ShuffleF
---
--- shuffle :: RDD f a -> Shuffle (RDD f a)
--- shuffle r = liftF $ undefined
---
--- collect :: Foldable f => RDD f a -> Shuffle [a]
--- collect r = liftF $ Collect r
-
--- collect :: RDD f a -> [a]
--- partitionBy :: (a -> Int) -> Int -> RDD f a -> RDD f a
 
 data ShuffleI a where
   Collect     :: Foldable f => RDD f a -> ShuffleI [a]
@@ -111,28 +67,11 @@ runShuffle x = viewT x >>= eval
         eval (Collect         r :>>= k) = runShuffle . k $ (fmap toList (extract r)) >>= id
         eval (PartitionBy f i r :>>= k) = runShuffle . k $ localPartitionBy f i r
 
-foo :: Foldable f => (a -> Int) -> Int -> f a -> State (IM.IntMap [a]) ()
-foo f i = mapM_ go
-  where go a = modify $ IM.insertWith (++) (f a `mod` i) [a]
-
-bar :: Foldable f => (a -> Int) -> Int -> RDD f a -> State (IM.IntMap [a]) ()
-bar f i (RDD c n) = sequence_ $ map (foo f i . c) n
-
-
--- foo :: (a -> Int) -> RDD f a -> State (IM.IntMap [a]) ()
--- foo toInt (RDD c n) = sequence_ $ map (go .) n
---   where go fa = mapM doMod fa
---         doMod a = modify $ IM.insertWith (++) (toInt a) [a]
-
--- localPartitionBy' :: Foldable f => (a -> Int) -> Int -> RDD f a -> RDD [] a
--- localPartitionBy' f i r = let m = map (go . c) n
---                           in RDD (m IM.!!) [0..i-1]
---   where go xs = foldr
-
--- zipWithIndex :: RDD f a -> KeyedRDD f Integer a
--- zipWithIndex (RDD c n) = RDD foo [0..length n - 1]
---   where go i = mapAccumL acc i
---     acc a b = (a + 1, (a, b))
+zipWithIndex :: (Monad m, Foldable f) => RDD f a -> Shuffle m (KeyedRDD f Integer a)
+zipWithIndex r@(RDD c n) = do
+  let sum = Identity . foldr (const (+ 1)) 0
+  d <- collect $ mapPartitions sum r
+  return $ undefined
 
 reduce :: (Monad m, Foldable f) => (a -> a -> a) -> RDD f a -> Shuffle m a
 reduce f r = do
