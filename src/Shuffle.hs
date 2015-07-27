@@ -1,45 +1,14 @@
 {-# LANGUAGE GADTs #-}
 module Shuffle where
-import Control.Monad (join)
-import Control.Monad.Free
 import Control.Monad.Operational
-import Control.Monad.State
 import Data.Foldable (toList)
 import Data.Functor.Identity
 import Data.Hashable
 import qualified Data.IntMap.Strict as IM
 import qualified Data.Map.Strict as M
-import Data.Maybe (catMaybes)
 
-data RDD f a where
-  RDD :: (s -> f a) -> [s] -> RDD f a
+import RDD
 
-extract :: RDD f a -> [f a]
-extract (RDD c n) = map c n
-
-produce :: [f a] -> RDD f a
-produce = RDD id
-
-compute :: RDD f a -> Int -> Maybe (f a)
-compute (RDD c n) i = fmap c $ n `safeLookup` i
-  where safeLookup []     _ = Nothing
-        safeLookup (x:_)  0 = Just x
-        safeLookup (_:xs) n = safeLookup xs (n - 1)
-
-mapPartitions :: (f a -> g b) -> RDD f a -> RDD g b
-mapPartitions f (RDD c n) = RDD (f . c) n
-
-mapPartitionsWithIndex :: (Int -> f a -> g b) -> RDD f a -> RDD g b
-mapPartitionsWithIndex f (RDD c n) = RDD go [0..length n - 1]
-  where go i = f i . c $ n !! i
-
-getNumPartitions :: RDD f a -> Int
-getNumPartitions (RDD _ n) = length n
-
-type FileName = String
-type LineData = String
-type HashFunc a = (a -> Integer)
-type KeyedRDD f k v = RDD f (k, v)
 
 data ShuffleI a where
   Collect     :: Foldable f => RDD f a -> ShuffleI [a]
