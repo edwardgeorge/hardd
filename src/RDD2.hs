@@ -20,6 +20,9 @@ instance Functor RDD where
 produce :: [[a]] -> RDD a
 produce x = RDD (x !!) [0..length x - 1]
 
+produce' :: [a] -> RDD a
+produce' x = RDD (const x) [()]
+
 compute :: RDD a -> PartitionIndex -> Maybe [a]
 compute (RDD c n) i = fmap (toList . c) $ safeLookup n i
   where safeLookup []     _ = Nothing
@@ -44,7 +47,7 @@ reduceByKeyLocally :: Ord k => (v -> v -> v) -> KeyedRDD k v -> KeyedRDD k v
 reduceByKeyLocally f = mapPartitions (M.toList . go f)
   where go f = flip foldr M.empty $ \(k, v) -> M.insertWith f k v
 
-keyByPartition :: HashFunc a -> NumPartitions -> RDD a -> KeyedRDD Int a
+keyByPartition :: HashFunc a -> NumPartitions -> RDD a -> KeyedRDD PartitionIndex a
 keyByPartition f i = fmap $ \a -> (f a `mod` i, a)
 
 foldMapLocally :: Monoid b => (a -> b) -> RDD a -> RDD b
