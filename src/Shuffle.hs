@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 module Shuffle where
 import Control.Monad.Trans.Free
+import Data.Hashable
 import Data.Monoid (Sum(..))
 
 import RDD
@@ -23,6 +24,10 @@ partitionBy :: Monad m =>
                HashFunc a -> NumPartitions -> RDD a
             -> Shuffle m (RDD a)
 partitionBy f n r = liftF $ PartitionBy f n r id
+
+repartition :: (Monad m, Hashable a) =>
+               NumPartitions -> RDD a -> Shuffle m (RDD a)
+repartition = partitionBy hash
 
 foldMapRDD :: (Monad m, Monoid b) => (a -> b) -> RDD a -> Shuffle m b
 foldMapRDD f r = do
