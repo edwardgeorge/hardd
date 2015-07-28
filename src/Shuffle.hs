@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 module Shuffle where
 import Control.Monad.Trans.Free
+import Data.Monoid (Sum(..))
 
 import RDD
 
@@ -27,3 +28,6 @@ foldMapRDD :: (Monad m, Monoid b) => (a -> b) -> RDD a -> Shuffle m b
 foldMapRDD f r = do
   d <- collect $ foldMapLocally f r
   return $ mconcat d
+
+count :: Monad m => RDD a -> Shuffle m Integer
+count = fmap getSum . foldMapRDD (const $ Sum 1)

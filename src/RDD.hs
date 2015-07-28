@@ -3,7 +3,6 @@
 module RDD where
 import Data.Foldable (toList)
 import Data.Functor.Identity
-import Data.Monoid (Sum(..))
 import qualified Data.Map.Strict as M
 
 type HashFunc a = (a -> Int)
@@ -53,6 +52,3 @@ keyByPartition f i = fmap $ \a -> (f a `mod` i, a)
 
 foldMapLocally :: Monoid b => (a -> b) -> RDD a -> RDD b
 foldMapLocally f = mapPartitions (Identity . foldMap f)
-
-countLocally :: Num b => RDD a -> RDD b
-countLocally = fmap getSum . foldMapLocally (const $ Sum 1)
