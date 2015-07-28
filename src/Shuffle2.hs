@@ -62,12 +62,9 @@ testCollect i = do
   withTaskGroup i $ \tg -> do
     asyncCollect rdd tg
 
-foo :: Foldable f => TaskGroup -> Int -> RDD f Int -> STM ()
-foo tg i r = do
-  chans <- replicateM i newTChan
-  let r' = partitionByLocal id i r
-  case r' of
-    RDD c n -> mapM_ (mapToChan chans . toList . c) n
+pullFromChan :: TaskGroup -> Int -> [TChan a] -> IO [[a]]
+pullFromChan tg numP = runTask tg . sequenceA . map doRead
+  where doRead chan = task . atomically $ replicateM numP (readTChan chan)
 
 mapToChan :: [TChan a] -> [(Int, [a])] -> STM ()
 mapToChan chans = sequence_ . map go
