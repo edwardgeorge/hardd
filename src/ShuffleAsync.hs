@@ -24,13 +24,10 @@ asyncPartitionBy tg f i r = do
   return $ RDD (new !!) [0..i - 1]
 
 fanout :: Int -> [(Int, a)] -> [[a]]
-fanout i []     = replicate i []
-fanout i (x:xs) = let r = fanout i xs
-                  in map go $ zip r [0..]
-  where go (r, j) = let (k, v) = x
-                    in if k == j
-                       then v:r
-                       else r
+fanout i = foldr go $ replicate i []
+  where go :: (Int, a) -> [[a]] -> [[a]]
+        go (i, v) x = map (meld i v) $ zip [0..] x
+        meld i v (j, r) = if i == j then (v:r) else r
 
 runShuffle :: Int -> Shuffle IO a -> IO a
 runShuffle i s = withTaskGroup i $ \tg -> iterT (go tg) s
