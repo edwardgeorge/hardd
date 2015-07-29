@@ -1,8 +1,8 @@
 module ShuffleAsync (runShuffle) where
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent.Async.Pool
-import Control.Concurrent.STM
-import Control.Monad.Trans.Free
+import Control.Concurrent.STM (atomically)
+import Control.Monad.Trans.Free (iterT)
 import Data.Foldable (toList)
 
 import RDD
@@ -22,7 +22,6 @@ asyncPartitionBy tg f i r = do
   y <- asyncCollect tg $ keyByPartition f i r
   let new = fanout i y
   return $ RDD (new !!) [0..i - 1]
-
 
 fanout :: Int -> [(Int, a)] -> [[a]]
 fanout i []     = replicate i []
