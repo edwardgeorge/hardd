@@ -70,7 +70,8 @@ library
                        mtl,
                        operational,
                        reflection,
-                       stm
+                       stm,
+                       temporary
   
   -- Directories containing source files.
   hs-source-dirs:      src
