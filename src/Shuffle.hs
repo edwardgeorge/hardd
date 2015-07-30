@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 module Shuffle where
-import Control.Monad.Trans.Free
-import Data.Hashable
+import Control.Monad.Trans.Free (FreeT, liftF)
+import Data.Hashable (Hashable, hash)
 import Data.Monoid (Sum(..))
 
 import RDD

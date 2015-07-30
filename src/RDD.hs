@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 module RDD where
 import Data.Foldable (toList)
-import Data.Functor.Identity
+import Data.Functor.Identity (Identity(..))
 import qualified Data.Map.Strict as M
 
 type HashFunc a = (a -> Int)

@@ -1,6 +1,6 @@
 module ShuffleAsync (runShuffle) where
 import qualified Control.Concurrent.Async as Async
-import Control.Concurrent.Async.Pool
+import Control.Concurrent.Async.Pool (TaskGroup, mapReduce, runTaskGroup, withTaskGroup, Async, wait)
 import Control.Concurrent.STM (atomically)
 import Control.Monad.Trans.Free (iterT)
 import Data.Foldable (toList)

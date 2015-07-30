@@ -63,6 +63,7 @@ library
                        async,
                        async-pool,
                        cereal,
+                       constraints,
                        containers,
                        distributed-process,
                        distributed-process-simplelocalnet,
