@@ -21,7 +21,7 @@ type NumPartitions = PartitionIndex
 
 type Keyed x k v = x (k, v)
 type JoinKey a b = forall k. Hashable k => Either a b -> k
-type HashFunc a b = (Hashable b => a -> b)
+type HashFunc a = forall b. a -> (forall c. Hashable c => c -> b) -> b
 
 class IsIndexable a where
   getPartitionIndex :: a -> PartitionIndex
@@ -33,7 +33,7 @@ class Shuffle (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
                          => (forall f s. (Traversable f, IsIndexable s) => s -> f a -> g b)
                          -> rdd n a -> x (rdd n b)
   collectWith            :: ([a] -> b) -> rdd n a -> x b
-  partitionBy            :: HashFunc a b -> proxy (n :: Nat) -> rdd m a -> x (rdd n a)
+  partitionBy            :: HashFunc a -> proxy (n :: Nat) -> rdd m a -> x (rdd n a)
   join                   :: JoinKey a b -> proxy (j :: JoinType)
                          -> rdd n a -> rdd m b -> x (rdd (n * m) (Joined j a b))
   union                  :: rdd n a -> rdd m a -> x (rdd (n + m) a)
@@ -56,7 +56,7 @@ reduceByKeyLocal f = mapPartitions (M.toList . go f)
 reduceByKey :: (Shuffle rdd x, Monad x, Ord k, Hashable k)
             => (v -> v -> v) -> proxy (m :: Nat) -> Keyed (rdd n) k v -> x (Keyed (rdd m) k v)
 reduceByKey f p r = do x <- reduceByKeyLocal f r
-                       y <- partitionBy fst p x
+                       y <- partitionBy keyToHash p x
                        reduceByKeyLocal f y
 
 reduceLocal :: Shuffle rdd x => (a -> b -> b) -> b -> rdd n a -> x (rdd n b)
@@ -86,7 +86,7 @@ reduceByKey' :: (Shuffle rdd x, Monad x, Ord k, Hashable k)
              => (a -> b -> b) -> (b -> b -> b) -> b -> proxy (m :: Nat)
              -> Keyed (rdd n) k a -> x (Keyed (rdd m) k b)
 reduceByKey' f g e n r = do x <- reduceByKeyLocal' f e r
-                            y <- partitionBy fst n x
+                            y <- partitionBy keyToHash n x
                             reduceByKeyLocal g y
 
 groupByKey' :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
@@ -97,5 +97,9 @@ groupByKeySeq :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
               -> Keyed (rdd n) k v -> x (Keyed (rdd m) k (S.Seq v))
 groupByKeySeq = reduceByKey' (S.<|) (S.><) (S.empty)
 
---toHashFunc :: Hashable b => (a -> b) -> a -> Dict Hashable
---toHashFunc f = undefined
+
+toHashFunc :: Hashable b => (a -> b) -> HF a
+toHashFunc f a g = g (f a)
+
+keyToHash :: Hashable k => HF (k, v)
+keyToHash = toHashFunc fst
