@@ -19,7 +19,7 @@ type PartitionIndex = Int
 type NumPartitions = PartitionIndex
 
 type Keyed x k v = x (k, v)
-type JoinKey a b = forall k. Hashable k => Either a b -> k
+type JoinKey a b = forall r. Either a b -> (forall k. Hashable k => k -> r) -> r
 type HashFunc a = forall b. a -> (forall c. Hashable c => c -> b) -> b
 
 class IsIndexable a where
@@ -97,8 +97,8 @@ groupByKeySeq :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
 groupByKeySeq = reduceByKey' (S.<|) (S.><) (S.empty)
 
 
-toHashFunc :: Hashable b => (a -> b) -> HF a
+toHashFunc :: Hashable b => (a -> b) -> HashFunc a
 toHashFunc f a g = g (f a)
 
-keyToHash :: Hashable k => HF (k, v)
+keyToHash :: Hashable k => HashFunc (k, v)
 keyToHash = toHashFunc fst
