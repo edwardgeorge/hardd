@@ -4,12 +4,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 module New where
+import Data.Constraint (Dict(Dict))
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Hashable (Hashable)
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
-import Data.Proxy (Proxy)
 import Data.Traversable (fmapDefault)
 
 import Join
@@ -34,8 +34,9 @@ class Local rdd x => Shuffle rdd x | x -> rdd where
 --  numPartitions :: rdd a -> x NumPartitions
   collectWith :: ([a] -> b) -> rdd a -> x b
   partitionBy :: HashFunc a b -> NumPartitions -> rdd a -> x (rdd a)
-  join        :: JoinKey a b -> Proxy (j :: JoinType)
+  join        :: JoinKey a b -> proxy (j :: JoinType)
               -> rdd a -> rdd b -> x (rdd (Joined j a b))
+  union       :: rdd a -> rdd a -> x (rdd a)
 
 mapPartitions :: (Local rdd x, Traversable g) => (forall f. Traversable f => f a -> g b) -> rdd a -> x (rdd b)
 mapPartitions f = mapPartitionsWithIndex (const f)
@@ -91,3 +92,6 @@ groupByKey' = reduceByKey' (:) (++) []
 
 groupByKeySeq :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => NumPartitions -> Keyed rdd k v -> x (Keyed rdd k (S.Seq v))
 groupByKeySeq = reduceByKey' (S.<|) (S.><) (S.empty)
+
+--toHashFunc :: Hashable b => (a -> b) -> a -> Dict Hashable
+--toHashFunc f = undefined
