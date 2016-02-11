@@ -5,7 +5,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 module New where
-import Data.Constraint (Dict(Dict))
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Hashable (Hashable)
