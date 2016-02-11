@@ -6,7 +6,7 @@ import Data.Proxy (Proxy)
 
 type Join' a b = Either (Either a b) (a, b)
 
-data JoinType = LeftOuterJoin | RightOuterJoin | InnerJoin
+data JoinType = LeftOuterJoin | RightOuterJoin | FullOuterJoin | InnerJoin
 
 class Join (x :: JoinType) where
   type Joined x (l :: *) (r :: *) :: *
@@ -39,3 +39,7 @@ instance Join 'InnerJoin where
   joinOn _ (Left (Left  _)) = Nothing
   joinOn _ (Left (Right _)) = Nothing
   joinOn _ (Right       x ) = Just x
+
+instance Join 'FullOuterJoin where
+  type Joined 'FullOuterJoin l r = Join' l r
+  joinOn _ x = Just x
