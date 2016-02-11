@@ -7,9 +7,9 @@
 module New where
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
-import Data.Hashable (Hashable)
-import qualified Data.Map.Strict as M
-import qualified Data.Sequence as S
+import Data.Hashable (Hashable)  -- from: hashable
+import qualified Data.Map.Strict as M  -- from: containers
+import qualified Data.Sequence as S  -- from: containers
 import Data.Traversable (fmapDefault)
 import GHC.TypeLits
 

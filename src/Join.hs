@@ -2,7 +2,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 module Join where
-import Data.Bifunctor
+import Data.Bifunctor  -- from: bifunctors
 -- import Data.Semigroup
 
 type Join' a b = Either (Either a b) (a, b)
