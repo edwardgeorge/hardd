@@ -26,32 +26,30 @@ type HashFunc a b = (Hashable b => a -> b)
 class IsIndexable a where
   getPartitionIndex :: a -> PartitionIndex
 
-class Local (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
+class Shuffle (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
+--  numPartitions :: rdd a -> x NumPartitions
   -- mapPartitionsWithIndex (const id) == return
   mapPartitionsWithIndex :: Traversable g
                          => (forall f s. (Traversable f, IsIndexable s) => s -> f a -> g b)
                          -> rdd n a -> x (rdd n b)
+  collectWith            :: ([a] -> b) -> rdd n a -> x b
+  partitionBy            :: HashFunc a b -> proxy (n :: Nat) -> rdd m a -> x (rdd n a)
+  join                   :: JoinKey a b -> proxy (j :: JoinType)
+                         -> rdd n a -> rdd m b -> x (rdd (n * m) (Joined j a b))
+  union                  :: rdd n a -> rdd m a -> x (rdd (n + m) a)
 
-class Local rdd x => Shuffle (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
---  numPartitions :: rdd a -> x NumPartitions
-  collectWith :: ([a] -> b) -> rdd n a -> x b
-  partitionBy :: HashFunc a b -> proxy (n :: Nat) -> rdd m a -> x (rdd n a)
-  join        :: JoinKey a b -> proxy (j :: JoinType)
-              -> rdd n a -> rdd m b -> x (rdd (n * m) (Joined j a b))
-  union       :: rdd n a -> rdd m a -> x (rdd (n + m) a)
-
-mapPartitions :: (Local rdd x, Traversable g) => (forall f. Traversable f => f a -> g b) -> rdd n a -> x (rdd n b)
+mapPartitions :: (Shuffle rdd x, Traversable g) => (forall f. Traversable f => f a -> g b) -> rdd n a -> x (rdd n b)
 mapPartitions f = mapPartitionsWithIndex (const f)
 
-mapRDD :: Local rdd x => (a -> b) -> rdd n a -> x (rdd n b)
+mapRDD :: Shuffle rdd x => (a -> b) -> rdd n a -> x (rdd n b)
 mapRDD f = mapPartitions (toList . fmapDefault f)
 
-filterRDD :: Local rdd x => (a -> Bool) -> rdd n a -> x (rdd n a)
+filterRDD :: Shuffle rdd x => (a -> Bool) -> rdd n a -> x (rdd n a)
 --filterRDD f = mapPartitions (filter f . toList)
 filterRDD f = mapPartitions $ foldr go []
   where go a b = if f a then a:b else b
 
-reduceByKeyLocal :: (Local rdd x, Ord k) => (v -> v -> v) -> Keyed (rdd n) k v -> x (Keyed (rdd n) k v)
+reduceByKeyLocal :: (Shuffle rdd x, Ord k) => (v -> v -> v) -> Keyed (rdd n) k v -> x (Keyed (rdd n) k v)
 reduceByKeyLocal f = mapPartitions (M.toList . go f)
   where go f = flip foldr M.empty $ \(k, v) -> M.insertWith f k v
 
@@ -61,7 +59,7 @@ reduceByKey f p r = do x <- reduceByKeyLocal f r
                        y <- partitionBy fst p x
                        reduceByKeyLocal f y
 
-reduceLocal :: Local rdd x => (a -> b -> b) -> b -> rdd n a -> x (rdd n b)
+reduceLocal :: Shuffle rdd x => (a -> b -> b) -> b -> rdd n a -> x (rdd n b)
 reduceLocal ma me = mapPartitions $ Identity . foldr ma me
 
 reduce :: (Monad x, Shuffle rdd x) => (a -> b) -> (b -> b -> b) -> b -> rdd n a -> x b
@@ -70,7 +68,7 @@ reduce f g e r = do x <- reduceLocal (g . f) e r
 
 -- -------
 
-mapValues :: Local rdd x => (a -> b) -> Keyed (rdd n) k a -> x (Keyed (rdd n) k b)
+mapValues :: Shuffle rdd x => (a -> b) -> Keyed (rdd n) k a -> x (Keyed (rdd n) k b)
 mapValues f = mapRDD $ fmap f
 
 groupByKey :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
@@ -78,7 +76,7 @@ groupByKey :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
 groupByKey n r = do x <- mapValues (:[]) r
                     reduceByKey (++) n x
 
-reduceByKeyLocal' :: (Local rdd x, Ord k) => (a -> b -> b) -> b -> Keyed (rdd n) k a -> x (Keyed (rdd n) k b)
+reduceByKeyLocal' :: (Shuffle rdd x, Ord k) => (a -> b -> b) -> b -> Keyed (rdd n) k a -> x (Keyed (rdd n) k b)
 reduceByKeyLocal' f b = mapPartitions (M.toList . go f)
   where go g = flip foldr M.empty $ \(k, v) -> M.alter (upd v g) k
         upd v g (Just a) = Just $ g v a
