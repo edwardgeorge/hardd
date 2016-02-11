@@ -102,3 +102,6 @@ toHashFunc f a g = g (f a)
 
 keyToHash :: Hashable k => HashFunc (k, v)
 keyToHash = toHashFunc fst
+
+toJoinKey :: Hashable k => (Either a b -> k) -> JoinKey a b
+toJoinKey f e g = g (f e)
