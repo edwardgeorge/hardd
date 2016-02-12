@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE KindSignatures #-}
@@ -16,11 +17,12 @@ import GHC.TypeLits
 import Join
 
 type PartitionIndex = Int
-type NumPartitions = PartitionIndex
+
+type Exists c = forall r. (forall a. c a => a -> r) -> r
 
 type Keyed x k v = x (k, v)
-type JoinKey a b = forall r. Either a b -> (forall k. Hashable k => k -> r) -> r
-type HashFunc a = forall b. a -> (forall c. Hashable c => c -> b) -> b
+type JoinKey a b = Either a b -> Exists Hashable
+type HashFunc a = a -> Exists Hashable
 
 class IsIndexable a where
   getPartitionIndex :: a -> PartitionIndex
@@ -32,7 +34,7 @@ class Shuffle (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
                          => (forall f s. (Traversable f, IsIndexable s) => s -> f a -> g b)
                          -> rdd n a -> x (rdd n b)
   collectWith            :: ([a] -> b) -> rdd n a -> x b
-  partitionBy            :: HashFunc a -> proxy (n :: Nat) -> rdd m a -> x (rdd n a)
+  partitionBy            :: HashFunc a -> numPartitions (n :: Nat) -> rdd m a -> x (rdd n a)
   join                   :: JoinKey a b -> proxy (j :: JoinType)
                          -> rdd n a -> rdd m b -> x (rdd (n * m) (Joined j a b))
   union                  :: rdd n a -> rdd m a -> x (rdd (n + m) a)

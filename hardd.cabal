@@ -15,10 +15,7 @@ cabal-version:       >=1.10
 
 
 library
-  exposed-modules:     RDD,
-                       Shuffle,
-                       ShuffleAsync,
-                       New,
+  exposed-modules:     New,
                        Join
   
   -- other-modules:       
