@@ -15,7 +15,8 @@ cabal-version:       >=1.10
 
 
 library
-  exposed-modules:     New,
+  exposed-modules:     Class,
+                       Ops,
                        Join
   
   -- other-modules:       

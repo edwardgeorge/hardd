@@ -1,12 +1,7 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
-module New where
-import Data.Foldable (toList)
+module Ops where
 import Data.Functor.Identity (Identity(..))
 import Data.Hashable (Hashable)  -- from: hashable
 import qualified Data.Map.Strict as M  -- from: containers
@@ -14,30 +9,9 @@ import qualified Data.Sequence as S  -- from: containers
 import Data.Traversable (fmapDefault)
 import GHC.TypeLits
 
-import Exists
-import Join
-
-type PartitionIndex = Int
+import Class
 
 type Keyed x k v = x (k, v)
-type JoinKey a b = Either a b -> Exists Hashable
-type HashFunc a = a -> Exists Hashable
-
-type PartitionMap a b = forall f. Traversable f => f a -> ExistsF Traversable b
-type IndexedPartitionMap a b = forall s. IsIndexable s => s -> PartitionMap a b
-
-class IsIndexable a where
-  getPartitionIndex :: a -> PartitionIndex
-
-class Shuffle (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
---  numPartitions :: rdd a -> x NumPartitions
-  -- mapPartitionsWithIndex (const id) == return
-  mapPartitionsWithIndex :: IndexedPartitionMap a b -> rdd n a -> x (rdd n b)
-  collectWith            :: ([a] -> b) -> rdd n a -> x b
-  partitionBy            :: HashFunc a -> numPartitions (n :: Nat) -> rdd m a -> x (rdd n a)
-  join                   :: JoinKey a b -> proxy (j :: JoinType)
-                         -> rdd n a -> rdd m b -> x (rdd (n * m) (Joined j a b))
-  union                  :: rdd n a -> rdd m a -> x (rdd (n + m) a)
 
 mapPartitions :: Shuffle rdd x => PartitionMap a b -> rdd n a -> x (rdd n b)
 mapPartitions f = mapPartitionsWithIndex (\s a -> f a)
