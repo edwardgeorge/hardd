@@ -28,6 +28,6 @@ class Shuffle (rdd :: Nat -> * -> *) (x :: * -> *) | x -> rdd where
   mapPartitionsWithIndex :: IndexedPartitionMap a b -> rdd n a -> x (rdd n b)
   collectWith            :: ([a] -> b) -> rdd n a -> x b
   partitionBy            :: HashFunc a -> numPartitions (n :: Nat) -> rdd m a -> x (rdd n a)
-  join                   :: JoinKey a b -> proxy (j :: JoinType)
+  joinRDDs               :: JoinKey a b -> proxy (j :: JoinType)
                          -> rdd n a -> rdd m b -> x (rdd (n * m) (Joined j a b))
-  union                  :: rdd n a -> rdd m a -> x (rdd (n + m) a)
+  unionRDDs              :: rdd n a -> rdd m a -> x (rdd (n + m) a)
