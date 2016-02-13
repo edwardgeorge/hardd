@@ -7,14 +7,13 @@ import Data.Hashable (Hashable)  -- from: hashable
 import qualified Data.Map.Strict as M  -- from: containers
 import qualified Data.Sequence as S  -- from: containers
 import Data.Traversable (fmapDefault)
-import GHC.TypeLits
 
 import Class
 
 type Keyed x k v = x (k, v)
 
 mapPartitions :: Shuffle rdd x => PartitionMap a b -> rdd n a -> x (rdd n b)
-mapPartitions f = mapPartitionsWithIndex (\s a -> f a)
+mapPartitions f = mapPartitionsWithIndex (\_ a -> f a)
 
 mapRDD :: Shuffle rdd x => (a -> b) -> rdd n a -> x (rdd n b)
 mapRDD f = mapPartitions (\a k -> k $ fmapDefault f a)
@@ -26,11 +25,11 @@ filterRDD f = mapPartitions $ \a k -> k $ foldr go [] a
 
 reduceByKeyLocal :: (Shuffle rdd x, Ord k) => (v -> v -> v) -> Keyed (rdd n) k v -> x (Keyed (rdd n) k v)
 reduceByKeyLocal f = mapPartitions (\a k -> k . M.toList $ go f a)
-  where go f = flip foldr M.empty $ \(k, v) -> M.insertWith f k v
+  where go f' = flip foldr M.empty $ \(k, v) -> M.insertWith f' k v
 
 
 reduceByKey :: (Shuffle rdd x, Monad x, Ord k, Hashable k)
-            => (v -> v -> v) -> proxy (m :: Nat) -> Keyed (rdd n) k v -> x (Keyed (rdd m) k v)
+            => (v -> v -> v) -> NumPartitions m -> Keyed (rdd n) k v -> x (Keyed (rdd m) k v)
 reduceByKey f p r = do x <- reduceByKeyLocal f r
                        y <- partitionBy keyToHash p x
                        reduceByKeyLocal f y
@@ -46,7 +45,7 @@ reduce f g e r = do x <- reduceLocal (g . f) e r
 mapValues :: Shuffle rdd x => (a -> b) -> Keyed (rdd n) k a -> x (Keyed (rdd n) k b)
 mapValues f = mapRDD $ fmap f
 
-groupByKey :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
+groupByKey :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => NumPartitions m
            -> Keyed (rdd n) k v -> x (Keyed (rdd m) k [v])
 groupByKey n r = do x <- mapValues (:[]) r
                     reduceByKey (++) n x
@@ -58,17 +57,17 @@ reduceByKeyLocal' f b = mapPartitions (\a k -> k . M.toList $ go f a)
         upd v g Nothing  = Just $ g v b
 
 reduceByKey' :: (Shuffle rdd x, Monad x, Ord k, Hashable k)
-             => (a -> b -> b) -> (b -> b -> b) -> b -> proxy (m :: Nat)
+             => (a -> b -> b) -> (b -> b -> b) -> b -> NumPartitions m
              -> Keyed (rdd n) k a -> x (Keyed (rdd m) k b)
 reduceByKey' f g e n r = do x <- reduceByKeyLocal' f e r
                             y <- partitionBy keyToHash n x
                             reduceByKeyLocal g y
 
-groupByKey' :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
+groupByKey' :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => NumPartitions m
             -> Keyed (rdd n) k v -> x (Keyed (rdd m) k [v])
 groupByKey' = reduceByKey' (:) (++) []
 
-groupByKeySeq :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => proxy (m :: Nat)
+groupByKeySeq :: (Shuffle rdd x, Monad x, Ord k, Hashable k) => NumPartitions m
               -> Keyed (rdd n) k v -> x (Keyed (rdd m) k (S.Seq v))
 groupByKeySeq = reduceByKey' (S.<|) (S.><) (S.empty)
 
